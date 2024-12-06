@@ -16,105 +16,136 @@ app.use(cors());
 app.use(express.static("public"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
 app.get("/", (req, res) => {
   res.sendFile(__dirname + "/views/index.html");
 });
 
-app.post("/api/users", async (req, res) => {
-  const { username } = req.body;
-  const userTableExist = await checkIfTableExists("users");
-  if (userTableExist) {
-    const users = await getAllUsers();
-    const usernameExist = users.find((user) => user.username == username);
-    if (usernameExist) {
-      res.status(409).json({ error: "username already exist" });
-      return;
+app.post("/api/users", async (req, res, next) => {
+  try {
+    const { username } = req.body;
+
+    if (!username || username.trim().length < 1) {
+      return res.status(400).json({ error: "Username is required" });
     }
+
+    const userTableExist = await checkIfTableExists("users");
+    if (userTableExist) {
+      const users = await getAllUsers();
+      const usernameExist = users.find((user) => user.username === username);
+      if (usernameExist) {
+        return res.status(409).json({ error: "Username already exists" });
+      }
+    }
+
+    const user = { username, id: Date.now() };
+    await inserUsers(user);
+
+    res.status(201).json(user);
+  } catch (error) {
+    next(error);
   }
-  const user = { username, id: Date.now() };
-  inserUsers(user);
-  res.json(JSON.stringify(user));
 });
 
-app.get("/api/users", async (req, res) => {
+app.get("/api/users", async (req, res, next) => {
   try {
     const users = await getAllUsers();
-    if (users.length == 0) {
-      res.status(404).json({ error: "no users found" });
-      return;
+    if (users.length === 0) {
+      return res.status(404).json({ error: "No users found" });
     }
     res.json(users);
   } catch (error) {
-    res.status(500).json({ error: "Error fetching users" });
+    next(error);
   }
 });
 
-app.post("/api/users/:id/exercises", async (req, res) => {
-  const { params, body } = req;
-  if (!body.duration || !body.description) {
-    res.status(404).json({ error: "Bad request" });
-    return;
-  }
-  const users = await getAllUsers();
-  const userFromDb = users.find((user) => user.id == params.id);
-  if (!userFromDb) {
-    res.status(401).json({ error: `no user found for the id ${params.id}` });
-    return;
-  }
-
-  const exercise = {
-    userId: params.id,
-    duration: body.duration,
-    description: body.description,
-    date: body.date || formatDate(new Date()),
-  };
-  insertExercise(exercise);
-  res.json(JSON.stringify(exercise));
-});
-
-app.get("/api/exercises", (req, res) => {
-  getAllExercises((err, exercises) => {
-    if (err) {
-      res.status(500).json({ error: "Error fetching exercises" });
-    } else {
-      if (exercises.length == 0) {
-        res.status(404).json({ error: "no exercises found" });
-      }
-      res.json(exercises);
+app.post("/api/users/:id/exercises", async (req, res, next) => {
+  try {
+    const { params, body } = req;
+    if (!body.duration || !body.description) {
+      return res.status(400).json({ error: "Bad request" });
     }
+
+    const users = await getAllUsers();
+    const userFromDb = users.find((user) => user.id == params.id);
+    if (!userFromDb) {
+      return res
+        .status(404)
+        .json({ error: `No user found for the ID ${params.id}` });
+    }
+
+    const exercise = {
+      userId: params.id,
+      duration: body.duration,
+      description: body.description,
+      date: body.date || formatDate(new Date()),
+    };
+    await insertExercise(exercise);
+    res.status(201).json(exercise);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/exercises", async (req, res, next) => {
+  try {
+    const exercises = await getAllExercises();
+    if (exercises.length === 0) {
+      return res.status(404).json({ error: "No exercises found" });
+    }
+    res.json(exercises);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/users/:id/logs", async (req, res, next) => {
+  try {
+    const { params } = req;
+    const exercises = await getUserExercises(params.id);
+    const createdExercises = exercises.map(
+      ({ userId, exerciseId, duration, description, date }) => ({
+        userId,
+        exerciseId,
+        duration,
+        description,
+        date,
+      })
+    );
+    res.json({ count: createdExercises.length, logs: createdExercises });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/users/:id/logs/:from/:to", async (req, res, next) => {
+  try {
+    const {
+      params: { id, from, to },
+    } = req;
+
+    const exercises = await getUserExercises(id, from, to);
+    const createdExercises = exercises.map(
+      ({ userId, exerciseId, duration, description, date }) => ({
+        userId,
+        exerciseId,
+        duration,
+        description,
+        date,
+      })
+    );
+    res.json({ count: createdExercises.length, logs: createdExercises });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.use((err, req, res, next) => {
+  console.error(err);
+  res.status(500).json({
+    error: "Internal Server Error",
+    details: err.message,
   });
-});
-
-app.get("/api/users/:id/logs", async (req, res) => {
-  const { params } = req;
-  const exercises = await getUserExercises(params.id);
-  const createdExercises = exercises.map(
-    ({ userId, exerciseId, duration, description, date }) => ({
-      userId,
-      exerciseId,
-      duration,
-      description,
-      date,
-    })
-  );
-  res.json({ count: createdExercises.length, logs: createdExercises });
-});
-app.get("/api/users/:id/logs/:from/:to", async (req, res) => {
-  const {
-    params: { id, from, to },
-  } = req;
-
-  const exercises = await getUserExercises(id, from, to);
-  const createdExercises = exercises.map(
-    ({ userId, exerciseId, duration, description, date }) => ({
-      userId,
-      exerciseId,
-      duration,
-      description,
-      date,
-    })
-  );
-  res.json({ count: createdExercises.length, logs: createdExercises });
 });
 
 const listener = app.listen(process.env.PORT || 3000, () => {
