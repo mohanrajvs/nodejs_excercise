@@ -69,7 +69,8 @@ app.post("/api/users/:id/exercises", async (req, res, next) => {
       return res.status(400).json({ error: "duration missing" });
     }
 
-    if (typeof body.duration !== "number" || body.duration <= 0) {
+    const duration = parseFloat(body.duration);
+    if (isNaN(duration) || duration <= 0) {
       return res.status(400).json({
         error: "Invalid duration: must be a positive number",
       });
@@ -120,6 +121,21 @@ app.get("/api/users/:id/logs", async (req, res, next) => {
         .json({ error: "Invalid date format in 'from' or 'to'" });
     }
     let exercises = await getUserExercises(params.id);
+
+    exercises = exercises.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    if (from || to) {
+      const fromDate = from ? new Date(from) : null;
+      const toDate = to ? new Date(to) : null;
+
+      exercises = exercises.filter(({ date }) => {
+        const exerciseDate = new Date(date);
+        return (
+          (!fromDate || exerciseDate >= fromDate) &&
+          (!toDate || exerciseDate <= toDate)
+        );
+      });
+    }
 
     if (limit) {
       const parsedLimit = parseInt(limit, 10);
