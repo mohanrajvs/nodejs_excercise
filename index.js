@@ -75,6 +75,13 @@ app.post("/api/users/:id/exercises", async (req, res, next) => {
         error: "Invalid duration: must be a positive number",
       });
     }
+    const date = body.date;
+    if (date) {
+      const isValidDate = !isNaN(Date.parse(date));
+      if (!isValidDate) {
+        return res.status(400).json({ error: "Invalid date format" });
+      }
+    }
 
     const users = await getAllUsers();
     const userFromDb = users.find((user) => user.id == params.id);
@@ -121,6 +128,7 @@ app.get("/api/users/:id/logs", async (req, res, next) => {
         .json({ error: "Invalid date format in 'from' or 'to'" });
     }
     let exercises = await getUserExercises(params.id);
+    const count = exercises.length;
 
     exercises = exercises.sort((a, b) => new Date(a.date) - new Date(b.date));
 
@@ -156,7 +164,7 @@ app.get("/api/users/:id/logs", async (req, res, next) => {
         date,
       })
     );
-    res.json({ count: createdExercises.length, logs: createdExercises });
+    res.json({ count, logs: createdExercises });
   } catch (error) {
     next(error);
   }
