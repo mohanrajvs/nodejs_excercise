@@ -97,16 +97,17 @@ exports.getAllUsers = () => {
 
 exports.getAllExercises = (callback) => {
   const db = connectDB();
-  db.all("SELECT * FROM exercise", [], (err, rows) => {
-    if (err) {
-      console.error(err.message);
-      callback(err, null);
-    } else {
-      callback(null, rows);
-    }
+  return new Promise((resolve, reject) => {
+    db.all("SELECT * FROM exercise", [], (err, rows) => {
+      if (err) {
+        console.error(err.message);
+        reject(err);
+      } else {
+        resolve(rows);
+      }
+      closeDB(db);
+    });
   });
-
-  closeDB(db);
 };
 
 exports.getUserExercises = async (
