@@ -46,7 +46,7 @@ app.post("/api/users", async (req, res, next) => {
     next(error);
   }
 });
-
+//test
 app.get("/api/users", async (req, res, next) => {
   try {
     const users = await getAllUsers();
