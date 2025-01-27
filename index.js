@@ -1,8 +1,10 @@
 const express = require("express");
 const app = express();
 const cors = require("cors");
+const moment = require("moment");
+
 const {
-  inserUsers,
+  insertUsers,
   getAllUsers,
   insertExercise,
   getAllExercises,
@@ -39,14 +41,14 @@ app.post("/api/users", async (req, res, next) => {
     }
 
     const user = { username, id: Date.now() };
-    await inserUsers(user);
+    await insertUsers(user);
 
     res.status(201).json(user);
   } catch (error) {
     next(error);
   }
 });
-//test
+
 app.get("/api/users", async (req, res, next) => {
   try {
     const users = await getAllUsers();
@@ -77,7 +79,7 @@ app.post("/api/users/:id/exercises", async (req, res, next) => {
     }
     const date = body.date;
     if (date) {
-      const isValidDate = !isNaN(Date.parse(date));
+      const isValidDate = moment(date).isValid();
       if (!isValidDate) {
         return res.status(400).json({ error: "Invalid date format" });
       }
@@ -121,14 +123,18 @@ app.get("/api/users/:id/logs", async (req, res, next) => {
     const { params, query } = req;
     const { from, to, limit } = query;
 
-    const isValidDate = (date) => !isNaN(Date.parse(date));
-    if ((from && !isValidDate(from)) || (to && !isValidDate(to))) {
+    if ((from && !moment(from).isValid()) || (to && !moment(to).isValid())) {
       return res
         .status(400)
         .json({ error: "Invalid date format in 'from' or 'to'" });
     }
-    let exercises = await getUserExercises(params.id);
-    const count = exercises.length;
+
+    let { items: exercises, count } = await getUserExercises(
+      params.id,
+      false,
+      false,
+      limit
+    );
 
     exercises = exercises.sort((a, b) => new Date(a.date) - new Date(b.date));
 
@@ -143,16 +149,6 @@ app.get("/api/users/:id/logs", async (req, res, next) => {
           (!toDate || exerciseDate <= toDate)
         );
       });
-    }
-
-    if (limit) {
-      const parsedLimit = parseInt(limit, 10);
-      if (isNaN(parsedLimit) || parsedLimit <= 0) {
-        return res
-          .status(400)
-          .json({ error: "'limit' must be a positive integer" });
-      }
-      exercises = exercises.slice(0, parsedLimit);
     }
 
     const createdExercises = exercises.map(
@@ -176,9 +172,7 @@ app.get("/api/users/:id/logs/:from/:to", async (req, res, next) => {
       params: { id, from, to },
     } = req;
 
-    const isValidDate = (date) => !isNaN(Date.parse(date));
-
-    if (!isValidDate(from) || !isValidDate(to)) {
+    if (!moment(from).isValid() || !moment(to).isValid()) {
       return res
         .status(400)
         .json({ error: "Invalid date format for 'from' or 'to'" });
@@ -190,7 +184,7 @@ app.get("/api/users/:id/logs/:from/:to", async (req, res, next) => {
         .json({ error: "'from' date must be earlier than 'to' date" });
     }
 
-    const exercises = await getUserExercises(id, from, to);
+    const { items: exercises } = await getUserExercises(id, from, to);
     const createdExercises = exercises.map(
       ({ userId, exerciseId, duration, description, date }) => ({
         userId,

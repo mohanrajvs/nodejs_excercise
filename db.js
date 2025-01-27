@@ -33,7 +33,7 @@ exports.checkIfTableExists = (tableName) => {
   });
 };
 
-exports.inserUsers = (user) => {
+exports.insertUsers = (user) => {
   const db = connectDB();
   const { username, id } = user;
   db.serialize(() => {
@@ -113,50 +113,67 @@ exports.getAllExercises = (callback) => {
 exports.getUserExercises = async (
   id = false,
   fromDate = false,
-  toDate = false
+  toDate = false,
+  limit = false
 ) => {
   const db = connectDB();
 
-  let query = `
-  SELECT * 
-  FROM users 
-  JOIN exercise ON users.id = exercise.userId
-`;
-
+  let baseQuery = `
+    FROM users 
+    JOIN exercise ON users.id = exercise.userId
+  `;
   const params = [];
 
   if (id) {
-    query += ` WHERE users.id = ?`;
+    baseQuery += ` WHERE users.id = ?`;
     params.push(id);
   }
 
   if (fromDate) {
-    if (params.length > 0) {
-      query += ` AND exercise.date >= ?`;
-    } else {
-      query += ` WHERE exercise.date >= ?`;
-    }
+    baseQuery +=
+      params.length > 0
+        ? ` AND exercise.date >= ?`
+        : ` WHERE exercise.date >= ?`;
     params.push(fromDate);
   }
 
   if (toDate) {
-    if (params.length > 0) {
-      query += ` AND exercise.date <= ?`;
-    } else {
-      query += ` WHERE exercise.date <= ?`;
-    }
+    baseQuery +=
+      params.length > 0
+        ? ` AND exercise.date <= ?`
+        : ` WHERE exercise.date <= ?`;
     params.push(toDate);
   }
 
+  const countQuery = `SELECT COUNT(*) AS total ${baseQuery}`;
+
+  let dataQuery = `
+    SELECT * 
+    ${baseQuery}
+    ORDER BY exercise.date DESC
+  `;
+  const dataParams = [...params];
+  if (limit) {
+    dataQuery += ` LIMIT ?`;
+    dataParams.push(limit);
+  }
+
   return new Promise((resolve, reject) => {
-    db.all(query, params, (err, rows) => {
+    db.get(countQuery, params, (err, countResult) => {
       if (err) {
-        console.error(err.message);
+        console.error("Error in count query:", err.message);
         reject(err);
       } else {
-        resolve(rows);
+        db.all(dataQuery, dataParams, (err, rows) => {
+          if (err) {
+            console.error("Error in data query:", err.message);
+            reject(err);
+          } else {
+            resolve({ count: countResult.total, items: rows });
+          }
+          closeDB(db);
+        });
       }
-      closeDB(db);
     });
   });
 };
