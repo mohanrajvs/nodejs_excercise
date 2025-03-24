@@ -97,7 +97,7 @@ app.post("/api/users/:id/exercises", async (req, res, next) => {
       userId: params.id,
       duration: body.duration,
       description: body.description,
-      date: body.date || formatDate(new Date()),
+      date: body.date ? formatDate(new Date(body.date)) : new Date(),
     };
     await insertExercise(exercise);
     res.status(201).json(exercise);
@@ -131,25 +131,11 @@ app.get("/api/users/:id/logs", async (req, res, next) => {
 
     let { items: exercises, count } = await getUserExercises(
       params.id,
-      false,
-      false,
+      formatDate(new Date(from)),
+      formatDate(new Date(to)),
       limit
     );
-
     exercises = exercises.sort((a, b) => new Date(a.date) - new Date(b.date));
-
-    if (from || to) {
-      const fromDate = from ? new Date(from) : null;
-      const toDate = to ? new Date(to) : null;
-
-      exercises = exercises.filter(({ date }) => {
-        const exerciseDate = new Date(date);
-        return (
-          (!fromDate || exerciseDate >= fromDate) &&
-          (!toDate || exerciseDate <= toDate)
-        );
-      });
-    }
 
     const createdExercises = exercises.map(
       ({ userId, exerciseId, duration, description, date }) => ({
