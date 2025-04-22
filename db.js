@@ -46,7 +46,6 @@ exports.insertUsers = (user) => {
         if (err) {
           console.error(err);
         }
-        console.log("user table created");
       }
     );
   });
@@ -145,13 +144,18 @@ exports.getUserExercises = async (
     params.push(toDate);
   }
 
-  const countQuery = `SELECT COUNT(*) AS total ${baseQuery}`;
+  const countQuery = `SELECT COUNT(*) AS total
+      FROM users 
+    JOIN exercise ON users.id = exercise.userId
+    WHERE users.id = ?
+  `;
 
   let dataQuery = `
     SELECT * 
     ${baseQuery}
     ORDER BY exercise.date DESC
   `;
+
   const dataParams = [...params];
   if (limit) {
     dataQuery += ` LIMIT ?`;
@@ -159,7 +163,7 @@ exports.getUserExercises = async (
   }
 
   return new Promise((resolve, reject) => {
-    db.get(countQuery, params, (err, countResult) => {
+    db.get(countQuery, [id], (err, countResult) => {
       if (err) {
         console.error("Error in count query:", err.message);
         reject(err);

@@ -97,7 +97,9 @@ app.post("/api/users/:id/exercises", async (req, res, next) => {
       userId: params.id,
       duration: body.duration,
       description: body.description,
-      date: body.date ? formatDate(new Date(body.date)) : new Date(),
+      date: body.date
+        ? formatDate(new Date(body.date))
+        : formatDate(new Date()),
     };
     await insertExercise(exercise);
     res.status(201).json(exercise);
@@ -131,11 +133,25 @@ app.get("/api/users/:id/logs", async (req, res, next) => {
 
     let { items: exercises, count } = await getUserExercises(
       params.id,
-      formatDate(new Date(from)),
-      formatDate(new Date(to)),
+      false,
+      false,
       limit
     );
+
     exercises = exercises.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    if (from || to) {
+      const fromDate = from ? new Date(from) : null;
+      const toDate = to ? new Date(to) : null;
+
+      exercises = exercises.filter(({ date }) => {
+        const exerciseDate = new Date(date);
+        return (
+          (!fromDate || exerciseDate >= fromDate) &&
+          (!toDate || exerciseDate <= toDate)
+        );
+      });
+    }
 
     const createdExercises = exercises.map(
       ({ userId, exerciseId, duration, description, date }) => ({
@@ -144,6 +160,7 @@ app.get("/api/users/:id/logs", async (req, res, next) => {
         duration,
         description,
         date,
+        date_human: moment(date).format("YYYY-MMM-DD"),
       })
     );
     res.json({ count, logs: createdExercises });
@@ -170,7 +187,7 @@ app.get("/api/users/:id/logs/:from/:to", async (req, res, next) => {
         .json({ error: "'from' date must be earlier than 'to' date" });
     }
 
-    const { items: exercises } = await getUserExercises(id, from, to);
+    const { items: exercises, count } = await getUserExercises(id, from, to);
     const createdExercises = exercises.map(
       ({ userId, exerciseId, duration, description, date }) => ({
         userId,
@@ -178,9 +195,10 @@ app.get("/api/users/:id/logs/:from/:to", async (req, res, next) => {
         duration,
         description,
         date,
+        date_human: moment(date).format("YYYY-MMM-DD"),
       })
     );
-    res.json({ count: createdExercises.length, logs: createdExercises });
+    res.json({ count, logs: createdExercises });
   } catch (error) {
     next(error);
   }
