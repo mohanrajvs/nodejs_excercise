@@ -133,8 +133,8 @@ app.get("/api/users/:id/logs", async (req, res, next) => {
 
     let { items: exercises, count } = await getUserExercises(
       params.id,
-      false,
-      false,
+      from,
+      to,
       limit
     );
 
@@ -169,40 +169,40 @@ app.get("/api/users/:id/logs", async (req, res, next) => {
   }
 });
 
-app.get("/api/users/:id/logs/:from/:to", async (req, res, next) => {
-  try {
-    const {
-      params: { id, from, to },
-    } = req;
+// app.get("/api/users/:id/logs/:from/:to", async (req, res, next) => {
+//   try {
+//     const {
+//       params: { id, from, to },
+//     } = req;
 
-    if (!moment(from).isValid() || !moment(to).isValid()) {
-      return res
-        .status(400)
-        .json({ error: "Invalid date format for 'from' or 'to'" });
-    }
+//     if (!moment(from).isValid() || !moment(to).isValid()) {
+//       return res
+//         .status(400)
+//         .json({ error: "Invalid date format for 'from' or 'to'" });
+//     }
 
-    if (new Date(from) > new Date(to)) {
-      return res
-        .status(400)
-        .json({ error: "'from' date must be earlier than 'to' date" });
-    }
+//     if (new Date(from) > new Date(to)) {
+//       return res
+//         .status(400)
+//         .json({ error: "'from' date must be earlier than 'to' date" });
+//     }
 
-    const { items: exercises, count } = await getUserExercises(id, from, to);
-    const createdExercises = exercises.map(
-      ({ userId, exerciseId, duration, description, date }) => ({
-        userId,
-        exerciseId,
-        duration,
-        description,
-        date,
-        date_human: moment(date).format("YYYY-MMM-DD"),
-      })
-    );
-    res.json({ count, logs: createdExercises });
-  } catch (error) {
-    next(error);
-  }
-});
+//     const { items: exercises, count } = await getUserExercises(id, from, to);
+//     const createdExercises = exercises.map(
+//       ({ userId, exerciseId, duration, description, date }) => ({
+//         userId,
+//         exerciseId,
+//         duration,
+//         description,
+//         date,
+//         date_human: moment(date).format("YYYY-MMM-DD"),
+//       })
+//     );
+//     res.json({ count, logs: createdExercises });
+//   } catch (error) {
+//     next(error);
+//   }
+// });
 
 app.use((err, req, res, next) => {
   console.error(err);

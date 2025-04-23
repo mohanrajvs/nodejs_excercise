@@ -143,27 +143,18 @@ exports.getUserExercises = async (
         : ` WHERE exercise.date <= ?`;
     params.push(toDate);
   }
-
-  const countQuery = `SELECT COUNT(*) AS total
-      FROM users 
-    JOIN exercise ON users.id = exercise.userId
-    WHERE users.id = ?
-  `;
-
-  let dataQuery = `
-    SELECT * 
-    ${baseQuery}
-    ORDER BY exercise.date DESC
-  `;
+  baseQuery += ` ORDER BY exercise.date ASC`;
 
   const dataParams = [...params];
   if (limit) {
-    dataQuery += ` LIMIT ?`;
-    dataParams.push(limit);
+    baseQuery += ` LIMIT ?`;
+    dataParams.push(+limit);
   }
+  const dataQuery = `SELECT * ${baseQuery}`;
+  const countQuery = `SELECT COUNT(*) AS total ${baseQuery}`;
 
   return new Promise((resolve, reject) => {
-    db.get(countQuery, [id], (err, countResult) => {
+    db.get(countQuery, dataParams, (err, countResult) => {
       if (err) {
         console.error("Error in count query:", err.message);
         reject(err);
